@@ -16,7 +16,7 @@ from scipy.io import loadmat
 from scipy.io import savemat
 from scipy.signal import find_peaks
 
-#%% Libérer la mémoire 
+#%% LibÃ©rer la mÃ©moire 
 tf.keras.backend.clear_session() 
 
 ########################## Fixation de la seed ##########################
@@ -29,17 +29,17 @@ tf.random.set_seed(seed_value)
 # Fixer la seed pour NumPy
 np.random.seed(seed_value)
 
-# Fixer la seed pour le générateur aléatoire de Python
+# Fixer la seed pour le gÃ©nÃ©rateur alÃ©atoire de Python
 random.seed(seed_value)
 
 # Fixer la seed pour le hashage Python
 os.environ['PYTHONHASHSEED'] = str(seed_value)
 
-########################## Paramètres ##########################
+########################## Paramï¿½tres ##########################
 
-gpu = 0            # Numéro du gpu utilisé
-sim_size = 5000    # Nombre de données simulées (max 10000)
-exp_size = 1200    # Nombre de données expérimentales (max 1200)
+gpu = 0            # NumÃ©ro du gpu utilisÃ©
+sim_size = 5000    # Nombre de donnÃ©es simulÃ©es (max 10000)
+exp_size = 1200    # Nombre de donnÃ©es expÃ©rimentales (max 1200)
 
 #Choisir le gpu
 physical_devices = tf.config.list_physical_devices('GPU') 
@@ -71,10 +71,10 @@ Y_predicted = np.concatenate((Y1_p, Y2_p))
 Y_predicted = Y_predicted.reshape(M,N,1)
 Y_predicted = 1000*Y_predicted + 1
 
-# Conversion des inputs et prédictions en dataset tensorflow
+# Conversion des inputs et prÃ©dictions en dataset tensorflow
 dataset = tf.data.Dataset.from_tensor_slices((Y_input, Y_predicted))
 
-# Mélange du dataset
+# MÃ©lange du dataset
 dataset = dataset.shuffle(buffer_size=len(Y_input))
 
 # Batch le dataset en 100 passes par epoch
@@ -92,29 +92,29 @@ N1 = len(Y_input1[0])
 M1 = len(Y_input1)
 Y_input1 = Y_input1.reshape(M1,N1,1)
 
-# Prédiction du dataset test
+# PrÃ©diction du dataset test
 Y_predicted1 = loadmat("./datasets/Dataset_real_deconv_mean_test_indus.mat")
 Y_predicted1 = np.array(Y_predicted1['deconv_test'])
 Y_predicted1 = Y_predicted1[:,0:2000]
 Y_predicted1 = Y_predicted1.reshape(M1,N1,1)
 Y_predicted1 = Y_predicted1*1000
 
-########################## Définition de la Custom Loss (success rate) ##########################
+########################## DÃ©finition de la Custom Loss (success rate) ##########################
 
 def detect_two_highest_peaks(signal, distance=30):
     signal = signal.reshape(2000)
     peaks, _ = find_peaks(signal[0:1980], distance=distance)
     if len(peaks) < 2:
-        return None  # Retourne None si moins de 2 pics sont trouvés
+        return None  # Retourne None si moins de 2 pics sont trouvÃ©s
     indices_T = sorted(peaks, key=lambda i: signal[i], reverse=True)
-    return np.array(indices_T[:2], dtype=int)  # Retourne les positions des 2 plus hauts pics triés par position
+    return np.array(indices_T[:2], dtype=int)  # Retourne les positions des 2 plus hauts pics triÃ©s par position
 
-# Paramètres du bloc du dataset test
+# ParamÃ¨tres du bloc du dataset test
 Cl=5932.07
 dt = 1/(100*10**6)
 pre = 0.5
 
-# Fonction custom loss appliqué lors de l'entrainement
+# Fonction custom loss appliquÃ© lors de l'entrainement
 def custom_peak_loss(y_true, y_pred):
     def py_custom_peak_loss(y_true, y_pred):
         total_diff = 0.0
@@ -128,43 +128,43 @@ def custom_peak_loss(y_true, y_pred):
             pred_peaks = detect_two_highest_peaks(pred_signal)
             
             if true_peaks is None or pred_peaks is None:
-                continue  # Ignore si moins de 2 pics sont trouvés
+                continue  # Ignore si moins de 2 pics sont trouvÃ©s
             
-            # Calculer la différence en valeur absolue des positions des pics
+            # Calculer la diffÃ©rence en valeur absolue des positions des pics
             diff1 = np.abs(max(true_peaks)-min(true_peaks))
             diff2 = np.abs(max(pred_peaks)-min(pred_peaks))
             d_diff = np.abs(diff1 - diff2)*Cl*dt/2*1000
             
-            # Les 59 premières données sont à 2.25MHz puis le reste à 5MHz
+            # Les 59 premiÃ¨res donnÃ©es sont Ã  2.25MHz puis le reste Ã  5MHz
             if i<59:
               lbd = Cl/(2.25e6)*1000
             else:
               lbd = Cl/(5e6)*1000
             
-            # Condition de succès
+            # Condition de succÃ©s
             if d_diff<lbd*pre:
               count+=1
         
-        #return Nombre_de_succès / Nombre_de_données
+        #return Nombre_de_succÃ©s / Nombre_de_donnÃ©es
         return count/batch_size
     
     return tf.py_function(func=py_custom_peak_loss, inp=[y_true, y_pred], Tout=tf.float32)
 
-# Utilisation de la fonction de loss personnalisée
+# Utilisation de la fonction de loss personnalisÃ©e
 @tf.function
 def custom_loss(y_true, y_pred):
     return custom_peak_loss(y_true, y_pred)
 
-########################## Fonction du suivi de l'entrainement (génère un plot toutes les 2 epoch) ##########################
+########################## Fonction du suivi de l'entrainement (gÃ©nÃ¨re un plot toutes les 2 epoch) ##########################
 
 def generate_and_save_prediction(epoch):
 
-    # Générer une prédiction avec votre modèle sur un exemple de test
+    # GÃ©nÃ¨rer une prÃ©diction avec votre modÃ¨le sur un exemple de test
     key = 604
     test_example = Y_input1[key]
     prediction = model.predict(tf.expand_dims(test_example, axis=0))[0]
     if (epoch+1)%2==0:
-    # Afficher et sauvegarder l'image de prédiction
+    # Afficher et sauvegarder l'image de prÃ©diction
       plt.plot(test_example,'b', alpha=0.5)
       #plt.plot(Y_predicted1[key]/1000,'r',alpha=0.5)
       plt.plot(prediction/max(prediction),'g')
@@ -175,7 +175,7 @@ def generate_and_save_prediction(epoch):
         plt.savefig(os.path.join('./predictions/', f'prediction_epoch_{epoch + 1}.png'))
       plt.close()
 
-########################## Définition du modèle ##########################
+########################## DÃ©finition du modÃ¨le ##########################
 
 # Block Transformer
 def transformer_block(inputs, input_shape, num_heads, mlp_units, dropout=0.3):
@@ -213,7 +213,7 @@ def transformer_block(inputs, input_shape, num_heads, mlp_units, dropout=0.3):
     x = tf.transpose(x, perm=[0,2,1])
     return x
 
-# Fonction pour la construction du modèle
+# Fonction pour la construction du modÃ¨le
 def build_model(input_shape, num_heads, num_transformer_blocks, mlp_units, dropout=0.3, mlp_dropout=0.3):
 
     inputs = tf.keras.Input(shape=input_shape)
@@ -235,7 +235,7 @@ def build_model(input_shape, num_heads, num_transformer_blocks, mlp_units, dropo
     x = tf.keras.activations.relu(x)
     return tf.keras.Model(inputs=inputs, outputs=x)
 
-########################## Fonction de perte personnalisée R-Drop ##########################
+########################## Fonction de perte personnalisÃ©e R-Drop ##########################
 class RDropLoss(tf.keras.losses.Loss):
     def __init__(self, lambda_rdrop=1.0, **kwargs):
         super().__init__(**kwargs)
@@ -244,13 +244,13 @@ class RDropLoss(tf.keras.losses.Loss):
         self.mse_loss = MeanSquaredError()
     
     def call(self, y_true, y_pred):
-        # Calcul la perte MSE (L2) pour deux prédictions
+        # Calcul la perte MSE (L2) pour deux prÃ©dictions
         y_pred1, y_pred2 = y_pred
         
         mse_loss1 = self.mse_loss(y_true, y_pred1)
         mse_loss2 = self.mse_loss(y_true, y_pred2)
         
-        # Calcul la divergence de perte KL entre les deux prédictions
+        # Calcul la divergence de perte KL entre les deux prÃ©dictions
         kl_loss = self.kl_loss(y_pred1, y_pred2)
 
         # Combine les pertes (MSE + KL Divergence)
@@ -261,20 +261,20 @@ class RDropLoss(tf.keras.losses.Loss):
 @tf.function
 def train_step(model, inputs, targets, optimizer, loss_fn):
     with tf.GradientTape() as tape:
-        # Passe deux fois avec un dropout différent
+        # Passe deux fois avec un dropout diffÃ©rent
         preds1 = model(inputs, training=True)
         preds2 = model(inputs, training=True)
         
         # Calcul la perte (MSE + KL divergence)
         loss = loss_fn(targets, (preds1, preds2))
     
-    # Réalise la descente de gradient et update le modèle
+    # Rï¿½alise la descente de gradient et update le modÃ¨le
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
     return loss
 
-########################## Fonction de validation du modèle ##########################
+########################## Fonction de validation du modÃ¨le ##########################
 @tf.function
 def validation_step(model, inputs, targets, custom_loss_fn):
     preds = model(inputs, training=False)  # Sans dropout lors de la validation
@@ -283,7 +283,7 @@ def validation_step(model, inputs, targets, custom_loss_fn):
 
 val_loss_list = []
 
-########################## Construction du modèle ##########################
+########################## Construction du modÃ¨le ##########################
 
 model = build_model(input_shape=(N, 1), num_heads=1, mlp_units=16, num_transformer_blocks=1)
 model.summary()
@@ -292,7 +292,7 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.
   
 ########################## Entrainement ##########################
 
-# Compilation du modèle
+# Compilation du modÃ¨le
 epochs = 50  # Nombre d'epoch
 
 # Initialisation des compteurs
@@ -321,13 +321,13 @@ for epoch in range(epochs):
           sys.stdout.write(f'\rStep {step+1}/{num_incr}, Train Loss: {loss.numpy():.4f}')
           sys.stdout.flush()
       
-      # A la fin de l'epoch, on évalue sur le dataset de validation  
+      # A la fin de l'epoch, on Ã©value sur le dataset de validation  
       val_loss = validation_step(model, Y_input1, Y_predicted1, custom_peak_loss)
       val_custom_loss.append(val_loss)
       generate_and_save_prediction(epoch) 
       print(f'\nEpoch {epoch+1}, Validation Loss: {val_loss.numpy()}, seed value : {seed_value}')
       
-      # On détermine si le success rate est meilleur que les époch précédentes et on sauvegarde la meilleur époch
+      # On dï¿½termine si le success rate est meilleur que les Ã©poch prÃ©cÃ©dentes et on sauvegarde la meilleur Ã©poch
       if val_loss > best_val_loss:
         print(f'Val loss improved from {best_val_loss} to {val_loss.numpy()} \n')
         best_val_loss = val_loss
@@ -337,12 +337,12 @@ for epoch in range(epochs):
         print(f'Val loss did not improve from {best_val_loss} \n')
         count+=1
       
-      # Si le success rate na pas évolué pendant plus de x epoch, l'entrainement s'arrête
+      # Si le success rate na pas Ã©voluÃ© pendant plus de x epoch, l'entrainement s'arrÃªte
       if count>=15:
         break 
       val_loss_list.append(best_val_loss) #Liste pour plot ensuite la courbe du success rate
     
-# Sauvegarde de la dernière époch
+# Sauvegarde de la derniÃ¨re Ã©poch
 model.save("./models/TNN_rdrop.keras")
 val_custom_loss=np.array(val_custom_loss) 
 savemat('./models/TNN_indus_test1.mat', {'rate': val_custom_loss}) 
@@ -350,5 +350,5 @@ savemat('./models/TNN_indus_test1.mat', {'rate': val_custom_loss})
 val_loss_list=np.array(val_loss_list)
 print('Meilleur IA : ',max(val_loss_list))
   
-########################## Libérer la mémoire ##########################
+########################## LibÃ©rer la mÃ©moire ##########################
 tf.keras.backend.clear_session()
