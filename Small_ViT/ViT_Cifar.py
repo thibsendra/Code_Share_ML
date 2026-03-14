@@ -11,12 +11,13 @@ from einops import repeat
 from torch import Tensor
 import torch.optim as optim
 from torchinfo import summary
+from pathlib import Path
 
 # Hyperparameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size = 128 # BS de l'entrainement
 batch_test = 128 # BS de la validation
-epoch = 100 # Nombre d'epoch d'entrainement
+epoch = 20 # Nombre d'epoch d'entrainement
 lr = 3e-4 # learning rate
 weight_decay = 0.05 
 emb_dim = 128 # Dimension d'embedding
@@ -140,45 +141,66 @@ class ViT(nn.Module):
         for block in self.blocks:
             x = block(x)
         
+        x = x[:,0]
+        #print(x.shape)
         # Output classification à partir du cls token
-        return self.classification(x[:, 0])
+        return self.classification(x)
 
-# Training
-model = ViT().to(device)
-summary(model, input_size=(1, 3, img_size, img_size))
-optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
-criterion = nn.CrossEntropyLoss()
+def main() -> None:
+    # Training
+    model = ViT().to(device)
+    summary(model, input_size=(1, 3, img_size, img_size))
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    criterion = nn.CrossEntropyLoss()
+    best_model = model
+    best_accuracy = 0
 
-for epoch in range(epoch):
-    epoch_loss = 0
-    model.train()
-    for step, (inputs, labels) in enumerate(train_loader):
-        inputs, labels = inputs.to(device), labels.to(device)
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        epoch_loss+=loss.item()
-        #print(f"Step numéro {step} sur {len(train_data)//128}") # Vérification du fonctionnement
-    print(f">>> Epoch {epoch} train loss: ", epoch_loss)
-    model.eval()
-    epoch_loss = 0
-    with torch.no_grad():
-        for step, (inputs, labels) in enumerate(test_loader):
+    for epoch in range(epoch):
+        epoch_loss = 0
+        model.train()
+        for step, (inputs, labels) in enumerate(train_loader):
             inputs, labels = inputs.to(device), labels.to(device)
+            optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
             epoch_loss+=loss.item()
+            #print(f"Step numéro {step} sur {len(train_data)//128}") # Vérification du fonctionnement
+        print(f">>> Epoch {epoch} train loss: ", epoch_loss)
 
-            correct = 0
-            total = 0
+        # Validation
+        model.eval()
+        epoch_loss = 0
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for step, (inputs, labels) in enumerate(test_loader):
+                inputs, labels = inputs.to(device), labels.to(device)
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                epoch_loss+=loss.item()
 
-            pred = outputs.argmax(dim=1)
-            correct += (pred == labels).sum().item()
-            total += labels.size(0)
+                pred = outputs.argmax(dim=1)
+                correct += (pred == labels).sum().item()
+                total += labels.size(0)
 
             accuracy = correct / total * 100
+            print(f">>> Epoch {epoch} test loss: ", epoch_loss)
+            print(f"Pourcentage de succès sur test : {accuracy}")
 
-        print(f">>> Epoch {epoch} test loss: ", epoch_loss)
-        print(f"Pourcentage de succès sur test : {accuracy}")
+            # Enregistrement du meilleur modèle sur la validation
+            if accuracy > best_accuracy:
+                print(f"Model upgraded from {best_accuracy} to {accuracy}")
+                best_accuracy = accuracy
+                best_model = model
+
+    MODEL_PATH = Path("models")
+    MODEL_PATH.mkdir(parents = True, exist_ok = True)
+    MODEL_NAME = "Small_ViT_Test.pth"
+    MODEL_SAVE_PATH = MODEL_PATH / MODEL_NAME
+    print(f"Saving best model to: {MODEL_SAVE_PATH}")
+    torch.save(best_model.state_dict(), f=MODEL_SAVE_PATH)
+
+if __name__ == '__main__':
+    main()
