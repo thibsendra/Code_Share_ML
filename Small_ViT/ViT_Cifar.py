@@ -146,7 +146,7 @@ class ViT(nn.Module):
         # Output classification à partir du cls token
         return self.classification(x)
 
-def main() -> None:
+def main(epoch:int) -> None:
     # Training
     model = ViT().to(device)
     summary(model, input_size=(1, 3, img_size, img_size))
@@ -203,4 +203,4 @@ def main() -> None:
     torch.save(best_model.state_dict(), f=MODEL_SAVE_PATH)
 
 if __name__ == '__main__':
-    main()
+    main(epoch)
